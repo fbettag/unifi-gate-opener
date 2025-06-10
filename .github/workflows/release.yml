@@ -1,0 +1,218 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+env:
+  GO_VERSION: '1.23'
+
+jobs:
+  release:
+    name: Create Release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: ${{ env.GO_VERSION }}
+
+    - name: Cache Go modules
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~/.cache/go-build
+          ~/go/pkg/mod
+        key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+        restore-keys: |
+          ${{ runner.os }}-go-
+
+    - name: Download dependencies
+      run: go mod download
+
+    - name: Run tests
+      run: go test -v ./internal/...
+
+    - name: Get version from tag
+      id: version
+      run: echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+
+    - name: Install build dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y gcc-multilib libc6-dev
+        # Install cross-compilers separately to avoid dependency conflicts
+        sudo apt-get install -y gcc-aarch64-linux-gnu || true
+        sudo apt-get install -y gcc-arm-linux-gnueabihf || true
+
+    - name: Build binaries for all platforms
+      run: |
+        mkdir -p build/releases
+        
+        # Define platforms
+        platforms=(
+          "linux/amd64"
+          "linux/arm64"
+          "linux/arm"
+        )
+        
+        for platform in "${platforms[@]}"; do
+          GOOS=${platform%/*}
+          GOARCH=${platform#*/}
+          
+          binary_name="unifi-gate-opener-${GOOS}-${GOARCH}"
+          if [ "$GOOS" = "windows" ]; then
+            binary_name="${binary_name}.exe"
+          fi
+          
+          echo "Building for $GOOS/$GOARCH..."
+          
+          # Set up cross-compilation for CGO if needed
+          export CC=gcc
+          if [ "$GOOS" = "linux" ] && [ "$GOARCH" = "arm64" ]; then
+            export CC=aarch64-linux-gnu-gcc
+          elif [ "$GOOS" = "linux" ] && [ "$GOARCH" = "arm" ]; then
+            export CC=arm-linux-gnueabihf-gcc
+            export GOARM=7  # ARMv7 for Raspberry Pi 2 and newer
+          fi
+          
+          CGO_ENABLED=1 GOOS=$GOOS GOARCH=$GOARCH go build \
+            -ldflags="-s -w -X main.Version=${{ steps.version.outputs.VERSION }}" \
+            -o "build/${binary_name}" ./cmd/main.go
+          
+          # Create archive
+          if [ "$GOOS" = "windows" ]; then
+            cd build && zip "../build/releases/unifi-gate-opener-${{ steps.version.outputs.VERSION }}-${GOOS}-${GOARCH}.zip" \
+              "${binary_name}" ../README.md ../LICENSE && cd ..
+          else
+            tar -czf "build/releases/unifi-gate-opener-${{ steps.version.outputs.VERSION }}-${GOOS}-${GOARCH}.tar.gz" \
+              -C build "${binary_name}" -C .. README.md LICENSE
+          fi
+        done
+        
+        # List created files
+        ls -la build/releases/
+
+    - name: Generate changelog
+      id: changelog
+      run: |
+        # Get previous tag
+        PREV_TAG=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo "")
+        
+        if [ -n "$PREV_TAG" ]; then
+          echo "CHANGELOG<<EOF" >> $GITHUB_OUTPUT
+          echo "## Changes since $PREV_TAG" >> $GITHUB_OUTPUT
+          echo "" >> $GITHUB_OUTPUT
+          git log --pretty=format:"- %s" $PREV_TAG..HEAD >> $GITHUB_OUTPUT
+          echo "" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+        else
+          echo "CHANGELOG<<EOF" >> $GITHUB_OUTPUT
+          echo "## Initial Release" >> $GITHUB_OUTPUT
+          echo "" >> $GITHUB_OUTPUT
+          echo "This is the first release of UniFi Gate Opener." >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+        fi
+
+    - name: Create GitHub Release
+      uses: softprops/action-gh-release@v1
+      with:
+        tag_name: ${{ steps.version.outputs.VERSION }}
+        name: Release ${{ steps.version.outputs.VERSION }}
+        body: |
+          # UniFi Gate Opener ${{ steps.version.outputs.VERSION }}
+          
+          ${{ steps.changelog.outputs.CHANGELOG }}
+          
+          ## Download
+          
+          Choose the appropriate binary for your Linux system:
+          
+          - **Linux AMD64**: `unifi-gate-opener-${{ steps.version.outputs.VERSION }}-linux-amd64.tar.gz`
+          - **Linux ARM64**: `unifi-gate-opener-${{ steps.version.outputs.VERSION }}-linux-arm64.tar.gz`
+          - **Linux ARM (ARMv7)**: `unifi-gate-opener-${{ steps.version.outputs.VERSION }}-linux-arm.tar.gz` (Raspberry Pi 2+)
+          
+          **Note**: This application requires SQLite with CGO support and currently only runs on Linux systems.
+          
+          ## Installation
+          
+          1. Download the appropriate archive for your platform
+          2. Extract the binary: `tar -xzf unifi-gate-opener-*.tar.gz` (or unzip for Windows)
+          3. Make executable (Linux/macOS): `chmod +x unifi-gate-opener-*`
+          4. Run: `./unifi-gate-opener-*` (or `unifi-gate-opener-*.exe` on Windows)
+          5. Open http://localhost:8080 in your browser
+          6. Follow the setup wizard
+          
+          ## Docker
+          
+          ```bash
+          docker run -d \
+            --name unifi-gate-opener \
+            -p 8080:8080 \
+            -v ./data:/app/data \
+            ghcr.io/fbettag/unifi-gate-opener:${{ steps.version.outputs.VERSION }}
+          ```
+          
+          For more information, see the [README](https://github.com/fbettag/unifi-gate-opener/blob/main/README.md).
+        files: build/releases/*
+        draft: false
+        prerelease: false
+
+  docker-release:
+    name: Build Release Docker Image
+    runs-on: ubuntu-latest
+    needs: release
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+
+    - name: Log in to GitHub Container Registry
+      uses: docker/login-action@v3
+      with:
+        registry: ghcr.io
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Get version from tag
+      id: version
+      run: echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+
+    - name: Extract metadata
+      id: meta
+      uses: docker/metadata-action@v5
+      with:
+        images: ghcr.io/${{ github.repository }}
+        tags: |
+          type=semver,pattern={{version}}
+          type=semver,pattern={{major}}.{{minor}}
+          type=semver,pattern={{major}}
+          type=raw,value=latest
+
+    - name: Build and push Docker image
+      uses: docker/build-push-action@v5
+      with:
+        context: .
+        platforms: linux/amd64
+        push: true
+        tags: ${{ steps.meta.outputs.tags }}
+        labels: ${{ steps.meta.outputs.labels }}
+        build-args: |
+          VERSION=${{ steps.version.outputs.VERSION }}
+        cache-from: type=gha
+        cache-to: type=gha,mode=max

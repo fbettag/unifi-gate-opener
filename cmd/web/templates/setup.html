@@ -1,0 +1,174 @@
+{{template "base.html" .}}
+
+{{define "title"}}Setup - UniFi Gate Opener{{end}}
+
+{{define "content"}}
+<div class="min-h-screen flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
+    <div class="max-w-2xl w-full space-y-8">
+        <div>
+            <h2 class="mt-6 text-center text-3xl font-extrabold text-gray-900 dark:text-white">
+                UniFi Gate Opener Setup
+            </h2>
+            <p class="mt-2 text-center text-sm text-gray-600 dark:text-gray-400">
+                Let's get your gate opener configured
+            </p>
+        </div>
+
+        <div class="mt-8 bg-white dark:bg-gray-800 py-8 px-4 shadow-xl rounded-lg sm:px-10">
+            <div id="setup-form">
+                <!-- Step 1: Admin Account -->
+                <div id="step-1" class="step">
+                    <h3 class="text-lg font-medium text-gray-900 dark:text-white mb-4">
+                        <i class="fas fa-user-shield mr-2"></i>Admin Account
+                    </h3>
+                    <div class="space-y-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Username</label>
+                            <input type="text" id="admin-username" required
+                                   class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Password</label>
+                            <input type="password" id="admin-password" required
+                                   class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Confirm Password</label>
+                            <input type="password" id="admin-password-confirm" required
+                                   class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Step 2: UniFi Controller -->
+                <div id="step-2" class="step hidden">
+                    <h3 class="text-lg font-medium text-gray-900 dark:text-white mb-4">
+                        <i class="fas fa-wifi mr-2"></i>UniFi Controller Configuration
+                    </h3>
+                    <div class="space-y-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Controller URL</label>
+                            <input type="url" id="unifi-url" placeholder="https://192.168.1.1:8443" required
+                                   class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+                            <p class="mt-1 text-xs text-gray-500">Include protocol and port (e.g., https://192.168.1.1:8443)</p>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Username</label>
+                            <input type="text" id="unifi-username" required
+                                   class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Password</label>
+                            <input type="password" id="unifi-password" required
+                                   class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Step 3: Select Site -->
+                <div id="step-3" class="step hidden">
+                    <h3 class="text-lg font-medium text-gray-900 dark:text-white mb-4">
+                        <i class="fas fa-sitemap mr-2"></i>Select UniFi Site
+                    </h3>
+                    <div class="space-y-4">
+                        <div id="site-loading" class="text-center py-4">
+                            <i class="fas fa-spinner fa-spin text-2xl text-indigo-600"></i>
+                            <p class="mt-2 text-sm text-gray-600">Loading sites...</p>
+                        </div>
+                        <div id="site-list" class="hidden space-y-2">
+                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                                Select the site to manage:
+                            </label>
+                            <div id="site-options" class="space-y-2"></div>
+                        </div>
+                        <div id="site-error" class="hidden">
+                            <div class="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded">
+                                <p class="font-medium">Failed to load sites</p>
+                                <p class="text-sm mt-1">Using default site.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Step 4: Select Gate AP -->
+                <div id="step-4" class="step hidden">
+                    <h3 class="text-lg font-medium text-gray-900 dark:text-white mb-4">
+                        <i class="fas fa-broadcast-tower mr-2"></i>Select Gate Access Point
+                    </h3>
+                    <div class="space-y-4">
+                        <div id="ap-loading" class="text-center py-4">
+                            <i class="fas fa-spinner fa-spin text-2xl text-indigo-600"></i>
+                            <p class="mt-2 text-sm text-gray-600">Loading access points...</p>
+                        </div>
+                        <div id="ap-list" class="hidden space-y-2">
+                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                                Select the access point closest to your gate:
+                            </label>
+                            <div id="ap-options" class="space-y-2"></div>
+                        </div>
+                        <div id="ap-error" class="hidden">
+                            <div class="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded">
+                                <p class="font-medium">Failed to load access points</p>
+                                <p class="text-sm mt-1">Please check your UniFi credentials and try again.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Step 5: Shelly Configuration -->
+                <div id="step-5" class="step hidden">
+                    <h3 class="text-lg font-medium text-gray-900 dark:text-white mb-4">
+                        <i class="fas fa-door-open mr-2"></i>Gate Controller Configuration
+                    </h3>
+                    <div class="space-y-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Shelly Trigger URL</label>
+                            <input type="url" id="shelly-url" placeholder="http://192.168.1.100/relay/0?turn=on" required
+                                   class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+                            <p class="mt-1 text-xs text-gray-500">HTTP GET endpoint to trigger gate opening</p>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Gate Open Duration (minutes)</label>
+                            <input type="number" id="gate-duration" value="10" min="1" max="60" required
+                                   class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+                            <p class="mt-1 text-xs text-gray-500">How long to wait before allowing gate to open again</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Navigation -->
+                <div class="mt-6 flex justify-between">
+                    <button type="button" id="btn-previous" onclick="previousStep()"
+                            class="hidden inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+                        <i class="fas fa-arrow-left mr-2"></i>Previous
+                    </button>
+                    <button type="button" id="btn-next" onclick="nextStep()"
+                            class="ml-auto inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+                        Next<i class="fas fa-arrow-right ml-2"></i>
+                    </button>
+                    <button type="button" id="btn-finish" onclick="finishSetup()"
+                            class="hidden ml-auto inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500">
+                        <i class="fas fa-check mr-2"></i>Complete Setup
+                    </button>
+                </div>
+            </div>
+
+            <!-- Success Message -->
+            <div id="setup-success" class="hidden text-center py-8">
+                <i class="fas fa-check-circle text-6xl text-green-500 mb-4"></i>
+                <h3 class="text-lg font-medium text-gray-900 dark:text-white mb-2">Setup Complete!</h3>
+                <p class="text-sm text-gray-600 dark:text-gray-400 mb-4">
+                    Your UniFi Gate Opener is now configured and ready to use.
+                </p>
+                <p class="text-sm text-gray-600 dark:text-gray-400">
+                    Redirecting to dashboard...
+                </p>
+            </div>
+        </div>
+    </div>
+</div>
+{{end}}
+
+{{define "scripts"}}
+<script src="/static/js/setup.js"></script>
+{{end}}

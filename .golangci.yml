@@ -1,0 +1,51 @@
+linters:
+  enable:
+    - gofmt
+    - govet
+    - errcheck
+    - staticcheck
+    - unused
+    - gosimple
+    - ineffassign
+    - typecheck
+    - gosec
+    - misspell
+    - unconvert
+    - goconst
+    - gocyclo
+    - dupl
+    - revive  # replacement for golint
+
+linters-settings:
+  gocyclo:
+    min-complexity: 15
+  goconst:
+    min-len: 2
+    min-occurrences: 3
+  misspell:
+    locale: US
+  revive:
+    confidence: 0.8
+
+issues:
+  exclude-rules:
+    # Skip test files for some linters
+    - path: _test\.go
+      linters:
+        - gocyclo
+        - dupl
+        - gosec
+    # Exclude generated code
+    - path: ".*\\.pb\\.go"
+      linters:
+        - revive
+        - govet
+  exclude-dirs:
+    - build
+    - dist
+    - vendor
+  exclude-files:
+    - ".*_test.go"
+
+run:
+  timeout: 5m

@@ -1,0 +1,199 @@
+/* Custom styles for UniFi Gate Opener */
+
+/* Form inputs */
+input[type="text"],
+input[type="password"],
+input[type="url"],
+input[type="number"],
+select {
+    @apply px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 dark:bg-gray-700 dark:text-white;
+}
+
+/* Fix for tab buttons in dark mode */
+.tab-button {
+    color: #374151;
+    border-color: transparent;
+}
+
+.tab-button:hover {
+    color: #111827;
+    border-color: #d1d5db;
+}
+
+.tab-button.active {
+    color: #4f46e5;
+    border-color: #4f46e5;
+}
+
+/* Dark mode tab buttons */
+@media (prefers-color-scheme: dark) {
+    .tab-button {
+        color: #d1d5db !important;
+    }
+    
+    .tab-button:hover {
+        color: #ffffff !important;
+        border-color: #6b7280;
+    }
+    
+    .tab-button.active {
+        color: #818cf8 !important;
+        border-color: #818cf8;
+    }
+    
+    /* Force dark mode text colors for navigation tabs */
+    nav .tab-button,
+    .dark\:border-gray-700 nav .tab-button,
+    .bg-gray-50.dark\:bg-gray-900 nav .tab-button {
+        color: #d1d5db !important;
+    }
+    
+    nav .tab-button:hover,
+    .dark\:border-gray-700 nav .tab-button:hover,
+    .bg-gray-50.dark\:bg-gray-900 nav .tab-button:hover {
+        color: #ffffff !important;
+    }
+    
+    nav .tab-button.active,
+    .dark\:border-gray-700 nav .tab-button.active,
+    .bg-gray-50.dark\:bg-gray-900 nav .tab-button.active {
+        color: #818cf8 !important;
+    }
+}
+
+/* Dark mode support */
+@media (prefers-color-scheme: dark) {
+    .bg-gray-50 {
+        background-color: #1f2937;
+    }
+    
+    .bg-white {
+        background-color: #111827;
+    }
+    
+    .text-gray-900 {
+        color: #f9fafb;
+    }
+    
+    .text-gray-700 {
+        color: #d1d5db;
+    }
+    
+    .text-gray-600 {
+        color: #9ca3af;
+    }
+    
+    .text-gray-500 {
+        color: #6b7280;
+    }
+    
+    .border-gray-200 {
+        border-color: #374151;
+    }
+    
+    .border-gray-300 {
+        border-color: #4b5563;
+    }
+}
+
+/* Loading animation */
+@keyframes spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+.fa-spin {
+    animation: spin 1s linear infinite;
+}
+
+/* Tab transitions */
+.tab-content {
+    transition: opacity 0.2s ease-in-out;
+}
+
+.tab-content:not(.active) {
+    opacity: 0;
+    position: absolute;
+    pointer-events: none;
+}
+
+.tab-content.active {
+    opacity: 1;
+    position: relative;
+    pointer-events: auto;
+}
+
+/* Modal backdrop */
+.fixed.inset-0 {
+    backdrop-filter: blur(2px);
+}
+
+/* Success checkmark animation */
+@keyframes checkmark {
+    0% {
+        transform: scale(0);
+        opacity: 0;
+    }
+    50% {
+        transform: scale(1.2);
+    }
+    100% {
+        transform: scale(1);
+        opacity: 1;
+    }
+}
+
+.fa-check-circle {
+    animation: checkmark 0.5s ease-out;
+}
+
+/* Status indicator pulse */
+@keyframes pulse {
+    0%, 100% {
+        opacity: 1;
+    }
+    50% {
+        opacity: 0.5;
+    }
+}
+
+.fa-circle {
+    animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+/* Fix for site selection radio labels in dark mode */
+label input[type="radio"] + div {
+    @apply text-gray-900 dark:text-white;
+}
+
+/* Fix for dropdown/select text in dark mode */
+select option {
+    @apply bg-white dark:bg-gray-700 text-gray-900 dark:text-white;
+}
+
+/* Fix for modal content in dark mode */
+.bg-white.dark\:bg-gray-800 {
+    @apply dark:text-white;
+}
+
+/* Ensure proper text color for dark mode in modals */
+#add-device-modal .bg-white {
+    @apply dark:bg-gray-800;
+}
+
+#add-device-modal .text-gray-900 {
+    @apply dark:text-white;
+}
+
+#add-device-modal .text-gray-700 {
+    @apply dark:text-gray-300;
+}
+
+#add-device-modal .bg-gray-50 {
+    @apply dark:bg-gray-700;
+}
+
+#add-device-modal input {
+    @apply dark:bg-gray-700 dark:text-white dark:border-gray-600;
+}

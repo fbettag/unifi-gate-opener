@@ -1,0 +1,41 @@
+# Git
+.git
+.gitignore
+
+# Documentation
+README.md
+LICENSE
+*.md
+
+# Build artifacts
+build/
+dist/
+unifi-gate-opener
+*.exe
+
+# Test files
+*_test.go
+testdata/
+coverage.out
+test_*.yaml
+test_*.db
+test*.db
+
+# Development files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Config files (should be mounted)
+config.yaml
+*.db
+
+# Temporary files
+tmp/
+temp/
