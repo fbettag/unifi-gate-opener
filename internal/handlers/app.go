@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"embed"
+	"fmt"
 	"html/template"
 	"net/http"
 	"strings"
@@ -36,6 +37,12 @@ type App struct {
 	isMonitoring   bool
 	stopMonitoring chan bool
 	deviceStates   map[string]*DeviceState
+
+	// Authentication retry state
+	authRetryCount   int
+	lastAuthAttempt  time.Time
+	authRetryBackoff time.Duration
+	authMu           sync.Mutex
 }
 
 type DeviceState struct {
@@ -135,20 +142,23 @@ func (app *App) pollUniFi() {
 	clients, err := app.UniFiClient.GetActiveClients(app.Config.UniFi.SiteID)
 	if err != nil {
 		app.Logger.Errorf("Failed to get active clients: %v", err)
-		// Try to re-login if needed
-		if err.Error() == "not logged in" {
-			app.Logger.Info("Attempting to re-login to UniFi")
-			if loginErr := app.UniFiClient.Login(); loginErr != nil {
-				app.Logger.Errorf("Re-login failed: %v", loginErr)
+		
+		// Check if this is an authentication error
+		if app.isAuthError(err) {
+			// Attempt re-authentication with backoff
+			if reauthErr := app.reauthenticateWithBackoff(); reauthErr != nil {
+				// Re-authentication failed or backoff in effect
 				return
 			}
-			// Retry getting clients
+			
+			// Retry getting clients after successful re-authentication
 			clients, err = app.UniFiClient.GetActiveClients(app.Config.UniFi.SiteID)
 			if err != nil {
-				app.Logger.Errorf("Failed to get active clients after re-login: %v", err)
+				app.Logger.Errorf("Failed to get active clients after re-authentication: %v", err)
 				return
 			}
 		} else {
+			// Non-authentication error, just return
 			return
 		}
 	}
@@ -214,6 +224,57 @@ func (app *App) pollUniFi() {
 			}
 		}
 	}
+}
+
+// reauthenticateWithBackoff attempts to re-authenticate with the UniFi controller
+// using exponential backoff to avoid overwhelming the server
+func (app *App) reauthenticateWithBackoff() error {
+	app.authMu.Lock()
+	defer app.authMu.Unlock()
+
+	// Check if we should attempt re-authentication based on backoff
+	if time.Since(app.lastAuthAttempt) < app.authRetryBackoff {
+		return fmt.Errorf("authentication retry backoff in effect (wait %v)", app.authRetryBackoff-time.Since(app.lastAuthAttempt))
+	}
+
+	app.lastAuthAttempt = time.Now()
+	app.Logger.Infof("Attempting to re-authenticate with UniFi controller (attempt #%d)", app.authRetryCount+1)
+
+	// Attempt to login
+	err := app.UniFiClient.Login()
+	if err != nil {
+		// Increase retry count and calculate next backoff
+		app.authRetryCount++
+		
+		// Exponential backoff: 1s, 2s, 4s, 8s, 16s, 32s, 64s (max)
+		app.authRetryBackoff = time.Duration(1<<uint(app.authRetryCount-1)) * time.Second
+		if app.authRetryBackoff > 64*time.Second {
+			app.authRetryBackoff = 64 * time.Second
+		}
+		
+		app.Logger.Errorf("Re-authentication failed (attempt #%d): %v. Next retry in %v", app.authRetryCount, err, app.authRetryBackoff)
+		return err
+	}
+
+	// Reset retry state on successful authentication
+	app.authRetryCount = 0
+	app.authRetryBackoff = 0
+	app.Logger.Info("Successfully re-authenticated with UniFi controller")
+	return nil
+}
+
+// isAuthError checks if the error is an authentication-related error
+func (app *App) isAuthError(err error) bool {
+	if err == nil {
+		return false
+	}
+	
+	errStr := strings.ToLower(err.Error())
+	return strings.Contains(errStr, "401") || 
+		strings.Contains(errStr, "unauthorized") ||
+		strings.Contains(errStr, "not logged in") ||
+		strings.Contains(errStr, "authentication") ||
+		strings.Contains(errStr, "invalid token")
 }
 
 func (app *App) handleDeviceConnected(state *DeviceState, toAP, fromAP string) {
